@@ -1,15 +1,16 @@
 package main
 
 import (
-	"code.google.com/p/gcfg"
 	"flag"
 	"fmt"
-	"github.com/op/go-logging"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+
+	"github.com/op/go-logging"
+	"github.com/pelletier/go-toml/v2"
 )
 
 const (
@@ -39,7 +40,8 @@ var Config struct {
 		ChunkSize     int64
 	}
 
-	Server map[string]*struct {
+	Server []*struct {
+		Name        string
 		Address     string
 		Port        int
 		Username    string
@@ -69,7 +71,7 @@ func main() {
 		logging.SetLevel(logging.INFO, "gopoststuff")
 	}
 
-	log.Info("gopoststuff %s starting...", GPS_VERSION)
+	log.Infof("gopoststuff %s starting...", GPS_VERSION)
 
 	// Make sure -d or -s was specified
 	if len(*subjectFlag) == 0 && !*dirSubjectFlag {
@@ -104,12 +106,18 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		cfgFile = filepath.Join(u.HomeDir, ".gopoststuff.conf")
+		cfgFile = filepath.Join(u.HomeDir, ".gopoststuff.toml")
 	}
 
-	log.Debug("Reading config from %s", cfgFile)
+	log.Debugf("Reading config from %s", cfgFile)
+	cfile, cerr := os.Open(cfgFile)
+	if cerr != nil {
+		log.Fatal(cerr)
+	}
+	defer cfile.Close()
 
-	err := gcfg.ReadFileInto(&Config, cfgFile)
+	tdec := toml.NewDecoder(cfile)
+	err := tdec.Decode(&Config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,7 +131,7 @@ func main() {
 	if *allCpuFlag {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
-	log.Info("Using %d/%d CPUs", runtime.GOMAXPROCS(0), runtime.NumCPU())
+	log.Infof("Using %d/%d CPUs", runtime.GOMAXPROCS(0), runtime.NumCPU())
 
 	// Set up CPU profiling
 	if *cpuProfileFlag != "" {
@@ -140,6 +148,6 @@ func main() {
 	Spawner(flag.Args())
 
 	if *cpuProfileFlag != "" {
-		log.Info("CPU profiling data saved to %s", *cpuProfileFlag)
+		log.Infof("CPU profiling data saved to %s", *cpuProfileFlag)
 	}
 }

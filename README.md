@@ -33,10 +33,10 @@ Installation
         go get github.com/madcowfred/GoPostStuff
         go install github.com/madcowfred/GoPostStuff
 
-3. Copy sample.conf to ~/.gopoststuff.conf and edit the options as appropriate.
+3. Copy sample.toml to ~/.gopoststuff.toml and edit the options as appropriate.
 
-        cp sample.conf ~/.gopoststuff.conf
-        vim ~/.gopoststuff.conf
+        cp sample.toml ~/.gopoststuff.toml
+        vim ~/.gopoststuff.toml
 
 4. Run GoPostStuff!
 

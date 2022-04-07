@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/madcowfred/gopoststuff/simplenntp"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"gopoststuff/simplenntp"
 )
 
 type FileData struct {
@@ -44,14 +45,15 @@ func Spawner(filenames []string) {
 		totalBytes += int64(fd.size)
 	}
 	totalMB := float64(totalBytes) / 1024 / 1024
-	log.Info("Found %d file(s) totalling %.1fMiB", len(files), totalMB)
+	log.Infof("Found %d file(s) totalling %.1fMiB", len(files), totalMB)
 
 	// Make a channel to stuff TimeDatas into
 	tdchan := make(chan *simplenntp.TimeData, 100000)
 
 	// Iterate over configured servers
-	for name, server := range Config.Server {
-		log.Info("[%s] Starting %d connections", name, server.Connections)
+	for _, server := range Config.Server {
+		name := server.Name
+		log.Infof("[%s] Starting %d connections", name, server.Connections)
 
 		// Make a channel to stuff Articles into
 		achan := make(chan *Article, server.Connections)
@@ -64,7 +66,7 @@ func Spawner(filenames []string) {
 		go func(c chan *Article, files []FileData) {
 			defer wg.Done()
 
-			log.Debug("[%s] Article generator started", name)
+			log.Debugf("[%s] Article generator started", name)
 
 			mc := NewMmapCache()
 
@@ -109,7 +111,7 @@ func Spawner(filenames []string) {
 					a := NewArticle(md.data[start:end], ad, subject)
 					c <- a
 
-					//log.Debug("%s %d = %d -> %d", fd.path, i, start, end)
+					//log.Debugf("%s %d = %d -> %d", fd.path, i, start, end)
 				}
 
 				if md.Decrement() {
@@ -117,7 +119,7 @@ func Spawner(filenames []string) {
 					if err != nil {
 						log.Fatalf("CloseFile error: %s", err)
 					}
-					log.Debug("[%s] Closed file %s", name, fd.path)
+					log.Debugf("[%s] Closed file %s", name, fd.path)
 				}
 			}
 
@@ -135,21 +137,21 @@ func Spawner(filenames []string) {
 				defer wg.Done()
 
 				// Connect
-				log.Debug("[%s:%02d] Connecting...", name, connID)
+				log.Debugf("[%s:%02d] Connecting...", name, connID)
 				conn, err := simplenntp.Dial(server.Address, server.Port, server.TLS, server.InsecureSSL, tdchan)
 				if err != nil {
 					log.Fatalf("[%s] Error while connecting: %s", name, err)
 				}
-				log.Debug("[%s:%02d] Connected", name, connID)
+				log.Debugf("[%s:%02d] Connected", name, connID)
 
 				// Authenticate if required
 				if len(server.Username) > 0 {
-					log.Debug("[%s:%02d] Authenticating...", name, connID)
+					log.Debugf("[%s:%02d] Authenticating...", name, connID)
 					err := conn.Authenticate(server.Username, server.Password)
 					if err != nil {
 						log.Fatalf("[%s:%02d] Error while authenticating: %s", name, connID, err)
 					}
-					log.Debug("[%s:%02d] Authenticated", name, connID)
+					log.Debugf("[%s:%02d] Authenticated", name, connID)
 				}
 
 				t := &Totals{start: time.Now()}
@@ -169,7 +171,7 @@ func Spawner(filenames []string) {
 				tchan <- t
 
 				// Close the connection
-				log.Debug("[%s:%02d] Closing connection", name, connID)
+				log.Debugf("[%s:%02d] Closing connection", name, connID)
 				err = conn.Quit()
 				if err != nil {
 					log.Warning("[%s:%02d] Error while closing connection: %s", name, connID, err)
@@ -201,7 +203,7 @@ func Spawner(filenames []string) {
 			dur := maxEnd.Sub(minStart)
 			speedKB := float64(totalBytes) / dur.Seconds() / 1024
 			totalMB := float64(totalBytes) / 1024 / 1024
-			log.Info("[%s] Posted %.1fMiB in %s at %.1fKB/s", name, totalMB, dur.String(), speedKB)
+			log.Infof("[%s] Posted %.1fMiB in %s at %.1fKB/s", name, totalMB, dur.String(), speedKB)
 		}(tchan)
 	}
 

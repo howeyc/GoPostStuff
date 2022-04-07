@@ -19,37 +19,38 @@ var timeout = time.Duration(20) * time.Second
 
 type TimeData struct {
 	Milliseconds int64
-	Bytes int
+	Bytes        int
 }
 
 // A ProtocolError represents responses from an NNTP server
 // that seem incorrect for NNTP.
 type ProtocolError string
+
 func (p ProtocolError) Error() string {
-        return string(p)
+	return string(p)
 }
 
 // An Error represents an error response from an NNTP server.
 type Error struct {
-        Code uint
-        Msg  string
-}
-func (e Error) Error() string {
-        return fmt.Sprintf("%03d %s", e.Code, e.Msg)
+	Code uint
+	Msg  string
 }
 
+func (e Error) Error() string {
+	return fmt.Sprintf("%03d %s", e.Code, e.Msg)
+}
 
 type Conn struct {
-	conn  io.WriteCloser
-	r     *bufio.Reader
+	conn   io.WriteCloser
+	r      *bufio.Reader
 	tdchan chan *TimeData
-	close bool
+	close  bool
 }
 
 func newConn(c net.Conn, tdchan chan *TimeData) (res *Conn, err error) {
 	res = &Conn{
-		conn: c,
-		r:    bufio.NewReaderSize(c, 4096),
+		conn:   c,
+		r:      bufio.NewReaderSize(c, 4096),
 		tdchan: tdchan,
 	}
 
@@ -70,7 +71,9 @@ func Dial(address string, port int, useTLS bool, insecureSSL bool, tdchan chan *
 
 	if useTLS {
 		// Create and handshake a TLS connection
-		tlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: insecureSSL})
+		tlsConn := tls.Client(conn, &tls.Config{
+			ServerName:         address,
+			InsecureSkipVerify: insecureSSL})
 		err = tlsConn.Handshake()
 		if err != nil {
 			return nil, err
@@ -151,12 +154,12 @@ func (c *Conn) Post(p []byte, chunkSize int64) error {
 		// Write a data sent time point to our channel
 		c.tdchan <- &TimeData{
 			Milliseconds: time.Now().UnixNano() / 1e6,
-			Bytes: n,
+			Bytes:        n,
 		}
 
 		// Calculate the next indexes
 		start += int64(n)
-		end = min(plen, start + chunkSize)
+		end = min(plen, start+chunkSize)
 		if start == plen {
 			break
 		}
@@ -177,7 +180,7 @@ func (c *Conn) Quit() error {
 }
 
 func min(a, b int64) int64 {
-	if (a < b) {
+	if a < b {
 		return a
 	}
 	return b
